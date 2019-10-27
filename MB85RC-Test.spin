@@ -19,6 +19,7 @@ CON
     SCL_PIN     = 24
     SDA_PIN     = 25
     I2C_HZ      = 400_000
+    ADDR_A2A1A0 = %000                  ' Optional alternate slave address (%000..%111, 0..7)
 
 OBJ
 
@@ -59,13 +60,14 @@ PUB Setup
     repeat until _ser_cog := ser.Start (115_200)
     ser.Clear
     ser.Str(string("Serial terminal started", ser#NL))
-    if fram.Startx (SCL_PIN, SDA_PIN, I2C_HZ)
+    if fram.Startx (SCL_PIN, SDA_PIN, I2C_HZ, ADDR_A2A1A0)
         ser.Str(string("MB85RCxxx driver started", ser#NL))
     else
         ser.Str(string("MB85RCxxx driver failed to start - halting", ser#NL))
         fram.Stop
         time.MSleep (500)
         ser.Stop
+        Flash (LED, 500)
 
 PUB Flash(led_pin, delay_ms)
 

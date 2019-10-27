@@ -22,6 +22,7 @@ CON
 
 VAR
 
+    byte _addr_a2a1a0
 
 OBJ
 
@@ -34,15 +35,16 @@ PUB Null
 
 PUB Start: okay                                                 'Default to "standard" Propeller I2C pins and 400kHz
 
-    okay := Startx (DEF_SCL, DEF_SDA, DEF_HZ)
+    okay := Startx (DEF_SCL, DEF_SDA, DEF_HZ, %000)
 
-PUB Startx(SCL_PIN, SDA_PIN, I2C_HZ): okay
+PUB Startx(SCL_PIN, SDA_PIN, I2C_HZ, addr_a2a1a0): okay
 
     if lookdown(SCL_PIN: 0..31) and lookdown(SDA_PIN: 0..31)
         if I2C_HZ =< core#I2C_MAX_FREQ
             if okay := i2c.setupx (SCL_PIN, SDA_PIN, I2C_HZ)    'I2C Object Started?
                 time.MSleep (1)
-                if i2c.present (SLAVE_WR)                       'Response from device?
+                _addr_a2a1a0 := addr_a2a1a0 << 1
+                if i2c.present (SLAVE_WR | _addr_a2a1a0)        'Response from device?
                     return okay
 
     return FALSE                                                'If we got here, something went wrong
@@ -59,7 +61,7 @@ PUB ID | tmp
 ' Read manufacturer ID from FRAM
     i2c.Start
     i2c.Write (core#RSVD_SLAVE_W)
-    i2c.Write (SLAVE_WR)
+    i2c.Write (SLAVE_WR | _addr_a2a1a0)
 
     i2c.Start
     i2c.Write (core#RSVD_SLAVE_R)
@@ -113,7 +115,7 @@ PRI readReg(reg, nr_bytes, buff_addr) | cmd_packet, tmp
 ' Read num_bytes from the slave device into the address stored in buff_addr
     case reg
         $00_00..$FF_FF:
-            cmd_packet.byte[0] := SLAVE_WR
+            cmd_packet.byte[0] := SLAVE_WR | _addr_a2a1a0
             cmd_packet.byte[1] := reg.byte[1]
             cmd_packet.byte[2] := reg.byte[0]
             i2c.Start
@@ -129,7 +131,7 @@ PRI writeReg(reg, nr_bytes, buff_addr) | cmd_packet, tmp
 ' Write num_bytes to the slave device from the address stored in buff_addr
     case reg
         $00_00..$FF_FF:
-            cmd_packet.byte[0] := SLAVE_WR
+            cmd_packet.byte[0] := SLAVE_WR | _addr_a2a1a0
             cmd_packet.byte[1] := reg.byte[1]
             cmd_packet.byte[2] := reg.byte[0]
             i2c.Start

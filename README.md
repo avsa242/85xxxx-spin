@@ -8,6 +8,7 @@ This is a P8X32A/Propeller driver object for MB85RCxxx series FRAM from Fujitsu
 * I2C connection at up to 1MHz
 * Read, write a single byte, or multiple bytes per transaction
 * Read device ID
+* Supports alternate slave addresses
 
 ## Requirements
 
@@ -20,8 +21,7 @@ This is a P8X32A/Propeller driver object for MB85RCxxx series FRAM from Fujitsu
 ## Limitations
 
 * Very early in development - may malfunction, or outright fail to build
-* Doesn't support alternate slave addresses
 
 ## TODO
 
-- [ ] Implement support for alternate slave addresses
+- [x] Implement support for alternate slave addresses
