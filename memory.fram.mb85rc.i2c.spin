@@ -99,7 +99,7 @@ PUB WriteByte(fram_addr, data)
 ' Write one byte to FRAM
     writeReg(fram_addr, 1, @data)
 
-PUB WriteBytes(fram_start_addr, nr_bytes, buff_addr) | tmp
+PUB WriteBytes(fram_start_addr, nr_bytes, buff_addr)
 ' Write multiple bytes to FRAM
 '   NOTE: If nr_bytes is greater than the number of bytes from the specified start address
 '       to the end of the FRAM memory, any writes past the end will wrap around to address $0000
@@ -111,7 +111,7 @@ PUB WriteBytes(fram_start_addr, nr_bytes, buff_addr) | tmp
 '           $7FFE, $7FFF, $0000, $0001
     writeReg(fram_start_addr, nr_bytes, buff_addr)
 
-PRI readReg(reg, nr_bytes, buff_addr) | cmd_packet, tmp
+PRI readReg(reg, nr_bytes, buff_addr) | cmd_packet
 ' Read num_bytes from the slave device into the address stored in buff_addr
     case reg
         $00_00..$FF_FF:
@@ -127,7 +127,7 @@ PRI readReg(reg, nr_bytes, buff_addr) | cmd_packet, tmp
         OTHER:
             return
 
-PRI writeReg(reg, nr_bytes, buff_addr) | cmd_packet, tmp
+PRI writeReg(reg, nr_bytes, buff_addr) | cmd_packet
 ' Write num_bytes to the slave device from the address stored in buff_addr
     case reg
         $00_00..$FF_FF:
