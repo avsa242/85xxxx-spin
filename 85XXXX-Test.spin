@@ -1,6 +1,6 @@
 {
     --------------------------------------------
-    Filename: MB85RC-Test.spin
+    Filename: 85xxxx-Test.spin
     Author: Jesse Burt
     Description: Test app for the MB85RCxxx driver
     Copyright (c) 2019
@@ -25,7 +25,7 @@ OBJ
 
     cfg     : "core.con.boardcfg.flip"
     ser     : "com.serial.terminal"
-    fram    : "memory.fram.mb85rc.i2c"
+    fram    : "memory.fram.85xxxx.i2c"
     time    : "time"
 
 VAR
