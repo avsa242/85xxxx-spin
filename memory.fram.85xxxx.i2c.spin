@@ -22,7 +22,7 @@ CON
 
 VAR
 
-    byte _addr_a2a1a0
+    byte _addr_bits
 
 OBJ
 
@@ -30,60 +30,62 @@ OBJ
     core: "core.con.85xxxx.spin"
     time: "time"
 
-PUB Null
+PUB Null{}
 ' This is not a top-level object
 
-PUB Start: okay                                                 'Default to "standard" Propeller I2C pins and 400kHz
+PUB Start{}: okay
+' Start using "standard" Propeller I2C pins and 400kHz
+    okay := startx(DEF_SCL, DEF_SDA, DEF_HZ, %000)
 
-    okay := Startx (DEF_SCL, DEF_SDA, DEF_HZ, %000)
-
-PUB Startx(SCL_PIN, SDA_PIN, I2C_HZ, addr_a2a1a0): okay
-
-    if lookdown(SCL_PIN: 0..31) and lookdown(SDA_PIN: 0..31)
+PUB Startx(SCL_PIN, SDA_PIN, I2C_HZ, ADDR_BITS): okay
+' Start using custom settings
+    if lookdown(SCL_PIN: 0..31) and lookdown(SDA_PIN: 0..31) and {
+}   lookdown(ADDR_BITS: %000..%111)
         if I2C_HZ =< core#I2C_MAX_FREQ
-            if okay := i2c.setupx (SCL_PIN, SDA_PIN, I2C_HZ)    'I2C Object Started?
-                time.MSleep (1)
-                _addr_a2a1a0 := addr_a2a1a0 << 1
-                if i2c.present (SLAVE_WR | _addr_a2a1a0)        'Response from device?
+            if okay := i2c.setupx(SCL_PIN, SDA_PIN, I2C_HZ)
+                time.msleep(1)
+                _addr_bits := ADDR_BITS << 1
+                ' check device bus presence
+                if i2c.present(SLAVE_WR | _addr_bits)
                     return okay
 
-    return FALSE                                                'If we got here, something went wrong
+    return FALSE                                ' something above failed
 
-PUB Stop
+PUB Stop{}
 ' Put any other housekeeping code here required/recommended by your device before shutting down
-    i2c.Terminate
+    i2c.terminate{}
 
-PUB Density
+PUB Density{}
 ' Read density from FRAM
-    result := (ID >> 8) & %1111
+    result := (deviceid{} >> 8) & %1111
 
-PUB ID | tmp
+PUB DeviceID{} | tmp
 ' Read manufacturer ID from FRAM
-    i2c.Start
-    i2c.Write (core#RSVD_SLAVE_W)
-    i2c.Write (SLAVE_WR | _addr_a2a1a0)
+    i2c.start{}
+    i2c.write(core#RSVD_SLAVE_W)
+    i2c.write(SLAVE_WR | _addr_bits)
 
-    i2c.Start
-    i2c.Write (core#RSVD_SLAVE_R)
-    repeat tmp from 0 to 2
-        result.byte[2-tmp] := i2c.Read (tmp == 2)
-    i2c.Stop
+    i2c.start{}
+    i2c.write(core#RSVD_SLAVE_R)
+    repeat tmp from 2 to 0
+        result.byte[tmp] := i2c.read(tmp == 0)
+    i2c.stop{}
 
-PUB Manufacturer
+PUB Manufacturer{}
 ' Read manufacturer ID
 '   Known values: $00A (Fujitsu)
-    result := (ID -> 12) & $FFF
+    result := (deviceid{} >> 12) & $FFF
 
-PUB ProductID
+PUB ProductID{}
 ' Read Product ID
 '   Known values: $510 (MB85RC256)
-    result := ID & $FFF
+    result := deviceid{} & $FFF
 
 PUB ReadByte(fram_addr)
 ' Read one byte from FRAM
-    readReg(fram_addr, 1, @result)
+    readreg(fram_addr, 1, @result)
 
-PUB ReadBytes(fram_start_addr, nr_bytes, buff_addr)
+PUB ReadBytes(fram_start_addr, nr_bytes, ptr_buff)
 ' Read multiple bytes from FRAM
 '   NOTE: If nr_bytes is greater than the number of bytes from the specified start address
 '       to the end of the FRAM memory, any reads past the end will wrap around to address $0000
@@ -93,13 +95,13 @@ PUB ReadBytes(fram_start_addr, nr_bytes, buff_addr)
 '           nr_bytes is specified as 4
 '           Locations actually read:
 '           $7FFE, $7FFF, $0000, $0001
-    readReg(fram_start_addr, nr_bytes, buff_addr)
+    readreg(fram_start_addr, nr_bytes, ptr_buff)
 
 PUB WriteByte(fram_addr, data)
 ' Write one byte to FRAM
-    writeReg(fram_addr, 1, @data)
+    writereg(fram_addr, 1, @data)
 
-PUB WriteBytes(fram_start_addr, nr_bytes, buff_addr)
+PUB WriteBytes(fram_start_addr, nr_bytes, ptr_buff)
 ' Write multiple bytes to FRAM
 '   NOTE: If nr_bytes is greater than the number of bytes from the specified start address
 '       to the end of the FRAM memory, any writes past the end will wrap around to address $0000
@@ -109,36 +111,36 @@ PUB WriteBytes(fram_start_addr, nr_bytes, buff_addr)
 '           nr_bytes is specified as 4
 '           Locations actually written:
 '           $7FFE, $7FFF, $0000, $0001
-    writeReg(fram_start_addr, nr_bytes, buff_addr)
+    writereg(fram_start_addr, nr_bytes, ptr_buff)
 
-PRI readReg(reg, nr_bytes, buff_addr) | cmd_packet
-' Read num_bytes from the slave device into the address stored in buff_addr
+PRI readReg(reg, nr_bytes, ptr_buff) | cmd_pkt
+' Read num_bytes from the slave device into the address stored in ptr_buff
     case reg
         $00_00..$FF_FF:
-            cmd_packet.byte[0] := SLAVE_WR | _addr_a2a1a0
-            cmd_packet.byte[1] := reg.byte[1]
-            cmd_packet.byte[2] := reg.byte[0]
-            i2c.Start
-            i2c.Wr_Block (@cmd_packet, 3)
-            i2c.Start
-            i2c.Write (SLAVE_RD)
-            i2c.Rd_Block (buff_addr, nr_bytes, TRUE)
-            i2c.Stop
-        OTHER:
+            cmd_pkt.byte[0] := SLAVE_WR | _addr_bits
+            cmd_pkt.byte[1] := reg.byte[1]
+            cmd_pkt.byte[2] := reg.byte[0]
+            i2c.start{}
+            i2c.wr_block(@cmd_pkt, 3)
+            i2c.start{}
+            i2c.write(SLAVE_RD)
+            i2c.rd_block(ptr_buff, nr_bytes, TRUE)
+            i2c.stop{}
+        other:
             return
 
-PRI writeReg(reg, nr_bytes, buff_addr) | cmd_packet
-' Write num_bytes to the slave device from the address stored in buff_addr
+PRI writeReg(reg, nr_bytes, ptr_buff) | cmd_pkt
+' Write num_bytes to the slave device from the address stored in ptr_buff
     case reg
         $00_00..$FF_FF:
-            cmd_packet.byte[0] := SLAVE_WR | _addr_a2a1a0
-            cmd_packet.byte[1] := reg.byte[1]
-            cmd_packet.byte[2] := reg.byte[0]
-            i2c.Start
-            i2c.Wr_Block (@cmd_packet, 3)
-            i2c.Wr_Block (buff_addr, nr_bytes)
-            i2c.Stop
-        OTHER:
+            cmd_pkt.byte[0] := SLAVE_WR | _addr_bits
+            cmd_pkt.byte[1] := reg.byte[1]
+            cmd_pkt.byte[2] := reg.byte[0]
+            i2c.start{}
+            i2c.wr_block(@cmd_pkt, 3)
+            i2c.wr_block(ptr_buff, nr_bytes)
+            i2c.stop{}
+        other:
             return
 
 
