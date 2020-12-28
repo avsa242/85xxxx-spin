@@ -3,9 +3,9 @@
     Filename: memory.fram.85xxxx.i2c.spin
     Author: Jesse Burt
     Description: Driver for 85xxxx series FRAM memories
-    Copyright (c) 2019
+    Copyright (c) 2020
     Started Oct 27, 2019
-    Updated Oct 27, 2019
+    Updated Dec 28, 2020
     See end of file for terms of use.
     --------------------------------------------
 }
@@ -55,10 +55,6 @@ PUB Stop{}
 ' Put any other housekeeping code here required/recommended by your device before shutting down
     i2c.terminate{}
 
-PUB Density{}
-' Read density from FRAM
-    result := (deviceid{} >> 8) & %1111
-
 PUB DeviceID{} | tmp
 ' Read manufacturer ID from FRAM
     i2c.start{}
@@ -75,6 +71,14 @@ PUB Manufacturer{}
 ' Read manufacturer ID
 '   Known values: $00A (Fujitsu)
     result := (deviceid{} >> 12) & $FFF
+
+PUB PartSize{}: size
+' Size/density of FRAM chip, in kbits
+'   Known values: 256, 512, 1024
+'   NOTE: Entries for 4..128kbits are unverifed
+'       (mfr. datasheet doesn't specify)
+    size := (deviceid{} >> 8) & %1111
+    return lookup(size: 4, 16, 64, 128, 256, 512, 1024)
 
 PUB ProductID{}
 ' Read Product ID
