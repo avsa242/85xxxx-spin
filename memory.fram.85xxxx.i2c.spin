@@ -17,7 +17,7 @@ CON
 
     DEF_SCL           = 28
     DEF_SDA           = 29
-    DEF_HZ            = 400_000
+    DEF_HZ            = 100_000
     I2C_MAX_FREQ      = core#I2C_MAX_FREQ
 
 VAR
@@ -34,7 +34,7 @@ PUB Null{}
 ' This is not a top-level object
 
 PUB Start{}: okay
-' Start using "standard" Propeller I2C pins and 400kHz
+' Start using "standard" Propeller I2C pins and 100kHz
     okay := startx(DEF_SCL, DEF_SDA, DEF_HZ, %000)
 
 PUB Startx(SCL_PIN, SDA_PIN, I2C_HZ, ADDR_BITS): okay
