@@ -117,13 +117,13 @@ PUB WriteBytes(fram_start_addr, nr_bytes, ptr_buff)
 '           $7FFE, $7FFF, $0000, $0001
     writereg(fram_start_addr, nr_bytes, ptr_buff)
 
-PRI readReg(reg, nr_bytes, ptr_buff) | cmd_pkt
-' Read num_bytes from the slave device into the address stored in ptr_buff
-    case reg
+PRI readReg(reg_nr, nr_bytes, ptr_buff) | cmd_pkt
+' Read nr_bytes from slave device into ptr_buff
+    case reg_nr
         $00_00..$FF_FF:
             cmd_pkt.byte[0] := SLAVE_WR | _addr_bits
-            cmd_pkt.byte[1] := reg.byte[1]
-            cmd_pkt.byte[2] := reg.byte[0]
+            cmd_pkt.byte[1] := reg_nr.byte[1]
+            cmd_pkt.byte[2] := reg_nr.byte[0]
             i2c.start{}
             i2c.wr_block(@cmd_pkt, 3)
             i2c.start{}
@@ -133,20 +133,19 @@ PRI readReg(reg, nr_bytes, ptr_buff) | cmd_pkt
         other:
             return
 
-PRI writeReg(reg, nr_bytes, ptr_buff) | cmd_pkt
-' Write num_bytes to the slave device from the address stored in ptr_buff
-    case reg
+PRI writeReg(reg_nr, nr_bytes, ptr_buff) | cmd_pkt
+' Write nr_bytes from ptr_buff to slave device
+    case reg_nr
         $00_00..$FF_FF:
             cmd_pkt.byte[0] := SLAVE_WR | _addr_bits
-            cmd_pkt.byte[1] := reg.byte[1]
-            cmd_pkt.byte[2] := reg.byte[0]
+            cmd_pkt.byte[1] := reg_nr.byte[1]
+            cmd_pkt.byte[2] := reg_nr.byte[0]
             i2c.start{}
             i2c.wr_block(@cmd_pkt, 3)
             i2c.wr_block(ptr_buff, nr_bytes)
             i2c.stop{}
         other:
             return
-
 
 DAT
 {
