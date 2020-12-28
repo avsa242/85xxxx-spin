@@ -1,10 +1,11 @@
 {
     --------------------------------------------
-    Filename: memory.fram.85xxxx.i2c.spin
+    Filename: memory.fram.85xxxx.i2c.spin2
     Author: Jesse Burt
     Description: Driver for 85xxxx series FRAM memories
+        (P2 version)
     Copyright (c) 2020
-    Started Oct 27, 2019
+    Started Dec 28, 2020
     Updated Dec 28, 2020
     See end of file for terms of use.
     --------------------------------------------
@@ -12,13 +13,11 @@
 
 CON
 
-    SLAVE_WR        = core#SLAVE_ADDR
-    SLAVE_RD        = core#SLAVE_ADDR|1
+    SLAVE_WR        = core.SLAVE_ADDR
+    SLAVE_RD        = core.SLAVE_ADDR|1
 
-    DEF_SCL         = 28
-    DEF_SDA         = 29
     DEF_HZ          = 100_000
-    I2C_MAX_FREQ    = core#I2C_MAX_FREQ
+    I2C_MAX_FREQ    = core.I2C_MAX_FREQ
 
 ' Manufacturer codes
     CYPRESS         = $004
@@ -34,20 +33,16 @@ OBJ
     core: "core.con.85xxxx.spin"
     time: "time"
 
-PUB Null{}
+PUB Null()
 ' This is not a top-level object
 
-PUB Start{}: okay
-' Start using "standard" Propeller I2C pins and 100kHz
-    okay := startx(DEF_SCL, DEF_SDA, DEF_HZ, %000)
-
-PUB Startx(SCL_PIN, SDA_PIN, I2C_HZ, ADDR_BITS): okay
+PUB Start(SCL_PIN, SDA_PIN, I2C_HZ=DEF_HZ, ADDR_BITS=%000): okay
 ' Start using custom settings
-    if lookdown(SCL_PIN: 0..31) and lookdown(SDA_PIN: 0..31) and {
+    if lookdown(SCL_PIN: 0..63) and lookdown(SDA_PIN: 0..63) and {
 }   lookdown(ADDR_BITS: %000..%111)
-        if I2C_HZ =< core#I2C_MAX_FREQ
-            if okay := i2c.setupx(SCL_PIN, SDA_PIN, I2C_HZ)
-                time.msleep(1)
+        if I2C_HZ <= core.I2C_MAX_FREQ
+            if okay := i2c.setup(SCL_PIN, SDA_PIN, I2C_HZ)
+                waitms(1)
                 _addr_bits := ADDR_BITS << 1
                 ' check device bus presence
                 if i2c.present(SLAVE_WR | _addr_bits)
@@ -55,38 +50,37 @@ PUB Startx(SCL_PIN, SDA_PIN, I2C_HZ, ADDR_BITS): okay
 
     return FALSE                                ' something above failed
 
-PUB Stop{}
-' Put any other housekeeping code here required/recommended by your device before shutting down
-    i2c.terminate{}
+PUB Stop()
+'
 
-PUB DeviceID{}: id | tmp
+PUB DeviceID(): id | tmp
 ' Read device identification
 '   NOTE: This may not be supported by all devices
-    i2c.start{}
-    i2c.write(core#RSVD_SLAVE_W)
+    i2c.start()
+    i2c.write(core.RSVD_SLAVE_W)
     i2c.write(SLAVE_WR | _addr_bits)
 
-    i2c.start{}
-    i2c.write(core#RSVD_SLAVE_R)
+    i2c.start()
+    i2c.write(core.RSVD_SLAVE_R)
     repeat tmp from 2 to 0
         id.byte[tmp] := i2c.read(tmp == 0)
-    i2c.stop{}
+    i2c.stop()
 
-PUB Manufacturer{}: id
+PUB Manufacturer(): id
 ' Read manufacturer ID
 '   Known values:
 '       $004 (Cypress)
 '       $00A (Fujitsu)
-    return (deviceid{} >> 12) & $FFF
+    return (deviceid() >> 12) & $FFF
 
-PUB PartSize{}: size
+PUB PartSize(): size
 ' Size/density of FRAM chip, in kbits
 '   Known values:
 '       When Manufacturer() == ...:
 '           CYPRESS ($004): 256, 512, 1024
 '           FUJITSU ($00A): 256, 512, 1024
-    size := (deviceid{} >> 8) & %1111
-    case manufacturer{}
+    size := (deviceid() >> 8) & %1111
+    case manufacturer()
         CYPRESS:
             return lookup(size: 1024, 256, 512)
         FUJITSU:
@@ -124,7 +118,7 @@ PUB WriteBytes(fram_start_addr, nr_bytes, ptr_buff)
 '           $7FFE, $7FFF, $0000, $0001
     writereg(fram_start_addr, nr_bytes, ptr_buff)
 
-PRI readReg(reg_nr, nr_bytes, ptr_buff) | cmd_pkt
+PRI readReg(reg_nr, nr_bytes, ptr_buff) | cmd_pkt, tmp
 ' Read nr_bytes from slave device into ptr_buff
     case reg_nr
         $00..$FFFF:
@@ -132,20 +126,22 @@ PRI readReg(reg_nr, nr_bytes, ptr_buff) | cmd_pkt
             cmd_pkt.byte[1] := reg_nr.byte[1]
             cmd_pkt.byte[2] := reg_nr.byte[0]
         $1_0000..$1_FFFF:                       ' upper page (for 1Mbit FRAM)
-            cmd_pkt.byte[0] := SLAVE_WR | core#PAGE_HI | _addr_bits
+            cmd_pkt.byte[0] := SLAVE_WR | core.PAGE_HI | _addr_bits
             cmd_pkt.byte[1] := reg_nr.byte[1]
             cmd_pkt.byte[2] := reg_nr.byte[0]
         other:
             return
 
-    i2c.start{}
-    i2c.wr_block(@cmd_pkt, 3)
-    i2c.start{}
+    i2c.start()
+    repeat tmp from 0 to 2
+        i2c.write(cmd_pkt.byte[tmp])
+    i2c.start()
     i2c.write(SLAVE_RD)
-    i2c.rd_block(ptr_buff, nr_bytes, TRUE)
-    i2c.stop{}
+    repeat tmp from 0 to nr_bytes-1
+        byte[ptr_buff][tmp] := i2c.read(tmp == nr_bytes-1)
+    i2c.stop()
 
-PRI writeReg(reg_nr, nr_bytes, ptr_buff) | cmd_pkt
+PRI writeReg(reg_nr, nr_bytes, ptr_buff) | cmd_pkt, tmp
 ' Write nr_bytes from ptr_buff to slave device
     case reg_nr
         $00..$FFFF:
@@ -153,16 +149,18 @@ PRI writeReg(reg_nr, nr_bytes, ptr_buff) | cmd_pkt
             cmd_pkt.byte[1] := reg_nr.byte[1]
             cmd_pkt.byte[2] := reg_nr.byte[0]
         $1_0000..$1_FFFF:
-            cmd_pkt.byte[0] := SLAVE_WR | core#PAGE_HI | _addr_bits
+            cmd_pkt.byte[0] := SLAVE_WR | core.PAGE_HI | _addr_bits
             cmd_pkt.byte[1] := reg_nr.byte[1]
             cmd_pkt.byte[2] := reg_nr.byte[0]
         other:
             return
 
-    i2c.start{}
-    i2c.wr_block(@cmd_pkt, 3)
-    i2c.wr_block(ptr_buff, nr_bytes)
-    i2c.stop{}
+    i2c.start()
+    repeat tmp from 0 to 2
+        i2c.write(cmd_pkt.byte[tmp])
+    repeat tmp from 0 to nr_bytes-1
+        i2c.write(byte[ptr_buff][tmp])
+    i2c.stop()
 
 DAT
 {
