@@ -17,9 +17,7 @@ CON
 
 ' -- User-modifiable constants
     LED         = cfg#LED1
-    SER_RX      = 31
-    SER_TX      = 30
-    SER_BAUD    = 115200
+    SER_BAUD    = 115_200
 
     I2C_SCL     = 28
     I2C_SDA     = 29
@@ -95,7 +93,7 @@ PUB ReadTest(start_addr) | stime, etime
     ser.position(0, STATUS_LINE)
     ser.str(string("Reading page..."))
     stime := cnt
-    mem.readbytes(start_addr, READCNT, @_buff)
+    mem.readbytes(start_addr, READCNT, @_buff)  ' read page into hub array
     etime := cnt-stime
 
     cycletime(etime)
