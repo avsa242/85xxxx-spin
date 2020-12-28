@@ -12,13 +12,17 @@
 
 CON
 
-    SLAVE_WR          = core#SLAVE_ADDR
-    SLAVE_RD          = core#SLAVE_ADDR|1
+    SLAVE_WR        = core#SLAVE_ADDR
+    SLAVE_RD        = core#SLAVE_ADDR|1
 
-    DEF_SCL           = 28
-    DEF_SDA           = 29
-    DEF_HZ            = 100_000
-    I2C_MAX_FREQ      = core#I2C_MAX_FREQ
+    DEF_SCL         = 28
+    DEF_SDA         = 29
+    DEF_HZ          = 100_000
+    I2C_MAX_FREQ    = core#I2C_MAX_FREQ
+
+' Manufacturer codes
+    CYPRESS         = $004
+    FUJITSU         = $00A
 
 VAR
 
@@ -55,8 +59,9 @@ PUB Stop{}
 ' Put any other housekeeping code here required/recommended by your device before shutting down
     i2c.terminate{}
 
-PUB DeviceID{} | tmp
-' Read manufacturer ID from FRAM
+PUB DeviceID{}: id | tmp
+' Read device identification
+'   NOTE: This may not be supported by all devices
     i2c.start{}
     i2c.write(core#RSVD_SLAVE_W)
     i2c.write(SLAVE_WR | _addr_bits)
@@ -64,26 +69,28 @@ PUB DeviceID{} | tmp
     i2c.start{}
     i2c.write(core#RSVD_SLAVE_R)
     repeat tmp from 2 to 0
-        result.byte[tmp] := i2c.read(tmp == 0)
+        id.byte[tmp] := i2c.read(tmp == 0)
     i2c.stop{}
 
-PUB Manufacturer{}
+PUB Manufacturer{}: id
 ' Read manufacturer ID
-'   Known values: $00A (Fujitsu)
-    result := (deviceid{} >> 12) & $FFF
+'   Known values:
+'       $004 (Cypress)
+'       $00A (Fujitsu)
+    return (deviceid{} >> 12) & $FFF
 
 PUB PartSize{}: size
 ' Size/density of FRAM chip, in kbits
-'   Known values: 256, 512, 1024
-'   NOTE: Entries for 4..128kbits are unverifed
-'       (mfr. datasheet doesn't specify)
+'   Known values:
+'       When Manufacturer() == ...:
+'           CYPRESS ($004): 256, 512, 1024
+'           FUJITSU ($00A): 256, 512, 1024
     size := (deviceid{} >> 8) & %1111
-    return lookup(size: 4, 16, 64, 128, 256, 512, 1024)
-
-PUB ProductID{}
-' Read Product ID
-'   Known values: $510 (MB85RC256)
-    result := deviceid{} & $FFF
+    case manufacturer{}
+        CYPRESS:
+            return lookup(size: 1024, 256, 512)
+        FUJITSU:
+            return lookup(size: 0, 0, 0, 0, 256, 512, 1024)
 
 PUB ReadByte(fram_addr)
 ' Read one byte from FRAM
