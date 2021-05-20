@@ -19,8 +19,8 @@ CON
     LED         = cfg#LED1
     SER_BAUD    = 115_200
 
-    I2C_SCL     = 28
-    I2C_SDA     = 29
+    I2C_SCL     = 24
+    I2C_SDA     = 25
     I2C_HZ      = 1_000_000
     ADDR_BITS   = %000
     READCNT     = 64
@@ -48,12 +48,12 @@ VAR
 PUB Main{} | mem_base
 
     setup{}
-
     mem_base := 0
     repeat
         readtest(mem_base)
 
-        ser.hexdump(@_buff, mem_base, READCNT, 16, 0, 5)
+        ser.position(0, 5)
+        ser.hexdump(@_buff, mem_base, 5, READCNT, 16)
         ser.newline{}
 
         case ser.charin{}

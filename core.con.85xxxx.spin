@@ -3,9 +3,9 @@
     Filename: core.con.85xxxx.spin
     Author: Jesse Burt
     Description: Low-level constants
-    Copyright (c) 2020
+    Copyright (c) 2021
     Started Oct 27, 2019
-    Updated Dec 28, 2020
+    Updated May 20, 2021
     See end of file for terms of use.
     --------------------------------------------
 }
@@ -14,6 +14,8 @@ CON
 
     I2C_MAX_FREQ        = 1_000_000
     SLAVE_ADDR          = $50 << 1
+
+    T_POR               = 1_000                 ' usec
 
 ' Register definitions
     RSVD_SLAVE_W        = $F8

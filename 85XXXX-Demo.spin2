@@ -22,7 +22,7 @@ CON
 
     I2C_SCL     = 16
     I2C_SDA     = 17
-    I2C_HZ      = 1_000_000
+    I2C_HZ      = 400_000
     ADDR_BITS   = %000
     READCNT     = 64
     MEM_SIZE    = 256                           ' kbits (256, 512, 1024, etc)
@@ -48,12 +48,12 @@ VAR
 PUB Main() | mem_base
 
     setup()
-
     mem_base := 0
     repeat
         readtest(mem_base)
 
-        ser.hexdump(@_buff, mem_base, READCNT, 16, 0, 5)
+        ser.position(0, 5)
+        ser.hexdump(@_buff, mem_base, 5, READCNT, 16)
         ser.newline()
 
         case ser.charin()
@@ -120,7 +120,7 @@ PUB Setup()
     waitms(30)
     ser.clear()
     ser.strln(string("Serial terminal started"))
-    if mem.start(I2C_SCL, I2C_SDA, I2C_HZ, ADDR_BITS)
+    if mem.startx(I2C_SCL, I2C_SDA, I2C_HZ, ADDR_BITS)
         ser.strln(string("85xxxx driver started"))
     else
         ser.strln(string("85xxxx driver failed to start - halting"))

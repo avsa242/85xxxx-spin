@@ -3,9 +3,9 @@
     Filename: memory.fram.85xxxx.i2c.spin
     Author: Jesse Burt
     Description: Driver for 85xxxx series FRAM memories
-    Copyright (c) 2020
+    Copyright (c) 2021
     Started Oct 27, 2019
-    Updated Dec 28, 2020
+    Updated May 20, 2021
     See end of file for terms of use.
     --------------------------------------------
 }
@@ -30,34 +30,35 @@ VAR
 
 OBJ
 
-    i2c : "com.i2c"
-    core: "core.con.85xxxx.spin"
-    time: "time"
+    i2c : "com.i2c"                             ' PASM I2C engine
+    core: "core.con.85xxxx"                     ' HW-specific constants
+    time: "time"                                ' timekeeping methods
 
 PUB Null{}
 ' This is not a top-level object
 
-PUB Start{}: okay
+PUB Start{}: status
 ' Start using "standard" Propeller I2C pins and 100kHz
-    okay := startx(DEF_SCL, DEF_SDA, DEF_HZ, %000)
+    return startx(DEF_SCL, DEF_SDA, DEF_HZ, %000)
 
-PUB Startx(SCL_PIN, SDA_PIN, I2C_HZ, ADDR_BITS): okay
+PUB Startx(SCL_PIN, SDA_PIN, I2C_HZ, ADDR_BITS): status
 ' Start using custom settings
     if lookdown(SCL_PIN: 0..31) and lookdown(SDA_PIN: 0..31) and {
-}   lookdown(ADDR_BITS: %000..%111)
-        if I2C_HZ =< core#I2C_MAX_FREQ
-            if okay := i2c.setupx(SCL_PIN, SDA_PIN, I2C_HZ)
-                time.msleep(1)
-                _addr_bits := ADDR_BITS << 1
-                ' check device bus presence
-                if i2c.present(SLAVE_WR | _addr_bits)
-                    return okay
-
-    return FALSE                                ' something above failed
+}   lookdown(ADDR_BITS: %000..%111) and I2C_HZ =< core#I2C_MAX_FREQ
+        if (status := i2c.init(SCL_PIN, SDA_PIN, I2C_HZ))
+            time.usleep(core#T_POR)
+            _addr_bits := ADDR_BITS << 1
+            ' check device bus presence
+            if i2c.present(SLAVE_WR | _addr_bits)
+                return
+    ' if this point is reached, something above failed
+    ' Double check I/O pin assignments, connections, power
+    ' Lastly - make sure you have at least one free core/cog
+    return FALSE
 
 PUB Stop{}
-' Put any other housekeeping code here required/recommended by your device before shutting down
-    i2c.terminate{}
+
+    i2c.deinit{}
 
 PUB DeviceID{}: id | tmp
 ' Read device identification
@@ -68,8 +69,7 @@ PUB DeviceID{}: id | tmp
 
     i2c.start{}
     i2c.write(core#RSVD_SLAVE_R)
-    repeat tmp from 2 to 0
-        id.byte[tmp] := i2c.read(tmp == 0)
+    i2c.rdblock_msbf(@tmp, 3, i2c#NAK)
     i2c.stop{}
 
 PUB Manufacturer{}: id
@@ -139,10 +139,10 @@ PRI readReg(reg_nr, nr_bytes, ptr_buff) | cmd_pkt
             return
 
     i2c.start{}
-    i2c.wr_block(@cmd_pkt, 3)
+    i2c.wrblock_lsbf(@cmd_pkt, 3)
     i2c.start{}
     i2c.write(SLAVE_RD)
-    i2c.rd_block(ptr_buff, nr_bytes, TRUE)
+    i2c.rdblock_lsbf(ptr_buff, nr_bytes, i2c#NAK)
     i2c.stop{}
 
 PRI writeReg(reg_nr, nr_bytes, ptr_buff) | cmd_pkt
@@ -160,8 +160,8 @@ PRI writeReg(reg_nr, nr_bytes, ptr_buff) | cmd_pkt
             return
 
     i2c.start{}
-    i2c.wr_block(@cmd_pkt, 3)
-    i2c.wr_block(ptr_buff, nr_bytes)
+    i2c.wrblock_lsbf(@cmd_pkt, 3)
+    i2c.wrblock_lsbf(ptr_buff, nr_bytes)
     i2c.stop{}
 
 DAT
