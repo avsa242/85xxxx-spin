@@ -17,15 +17,15 @@ This is a P8X32A/Propeller driver object for I2C FRAM memories
 
 P1/SPIN1:
 * spin-standard-library
-* 1 extra core/cog for PASM I2C driver
+* 1 extra core/cog for PASM I2C engine
 
 P2/SPIN2:
 * p2-spin-standard-library
 
 ## Compiler Compatibility
 
-* P1/SPIN1: OpenSpin (tested with 1.00.81)
-* P2/SPIN2: FlexSpin (tested with 5.0.0)
+* P1/SPIN1: OpenSpin (tested with 1.00.81), FlexSpin (tested with 5.9.4-beta)
+* P2/SPIN2: FlexSpin (tested with 5.9.4-beta)
 * ~~BST~~ (incompatible - no preprocessor)
 * ~~Propeller Tool~~ (incompatible - no preprocessor)
 * ~~PNut~~ (incompatible - no preprocessor)
@@ -39,3 +39,4 @@ P2/SPIN2:
 
 - [x] Implement support for alternate slave addresses
 - [x] Port to P2/SPIN2
+
