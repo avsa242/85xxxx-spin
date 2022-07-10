@@ -31,7 +31,7 @@ VAR
 OBJ
 
 { decide: Bytecode I2C engine, or PASM? Default is PASM if BC isn't specified }
-#ifdef LPS25_I2C_BC
+#ifdef 85XXXX_I2C_BC
     i2c : "com.i2c.nocog"                       ' BC I2C engine
 #else
     i2c : "com.i2c"                             ' PASM I2C engine
