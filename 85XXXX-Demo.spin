@@ -19,9 +19,9 @@ CON
     LED         = cfg#LED1
     SER_BAUD    = 115_200
 
-    I2C_SCL     = 24
-    I2C_SDA     = 25
-    I2C_FREQ    = 1_000_000
+    I2C_SCL     = 16
+    I2C_SDA     = 17
+    I2C_FREQ    = 100000'1_000_000
     ADDR_BITS   = %000
     READCNT     = 64
     MEM_SIZE    = 256                           ' kbits (256, 512, 1024, etc)

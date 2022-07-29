@@ -5,7 +5,7 @@
     Description: Driver for 85xxxx series FRAM memories
     Copyright (c) 2022
     Started Oct 27, 2019
-    Updated Jul 10, 2022
+    Updated Jul 29, 2022
     See end of file for terms of use.
     --------------------------------------------
 }
@@ -65,16 +65,17 @@ PUB Stop{}
 
     i2c.deinit{}
 
-PUB DeviceID{}: id | tmp
+PUB DeviceID{}: id
 ' Read device identification
 '   NOTE: This may not be supported by all devices
     i2c.start{}
     i2c.write(core#RSVD_SLAVE_W)
     i2c.write(SLAVE_WR | _addr_bits)
 
+    id := 0
     i2c.start{}
     i2c.write(core#RSVD_SLAVE_R)
-    i2c.rdblock_msbf(@tmp, 3, i2c#NAK)
+    i2c.rdblock_msbf(@id, 3, i2c#NAK)
     i2c.stop{}
 
 PUB Manufacturer{}: id
@@ -84,14 +85,21 @@ PUB Manufacturer{}: id
 '       $00A (Fujitsu)
     return (deviceid{} >> 12) & $FFF
 
-PUB PartSize{}: size
+PUB PageSize{}: p
+' Page size
+'   NOTE: FRAM has no concept of pages, so just return the part's full size
+    return (partsize{} / 8) * 1024
+
+PUB PartSize{}: size | devid, mfr
 ' Size/density of FRAM chip, in kbits
 '   Known values:
 '       When Manufacturer() == ...:
 '           CYPRESS ($004): 256, 512, 1024
 '           FUJITSU ($00A): 256, 512, 1024
-    size := (deviceid{} >> 8) & %1111
-    case manufacturer{}
+    devid := deviceid{}
+    mfr := (devid >> 12) & $FFF
+    size := (devid >> 8) & %1111
+    case mfr
         CYPRESS:
             return lookup(size: 1024, 256, 512)
         FUJITSU:
