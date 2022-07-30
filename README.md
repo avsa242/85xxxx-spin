@@ -7,7 +7,7 @@ This is a P8X32A/Propeller driver object for I2C FRAM memories
 
 ## Salient Features
 
-* I2C connection at up to 1MHz
+* I2C connection at up to 1MHz (P2 tested up to 700kHz)
 * Supports densities up to 1Mbit
 * Read, write a single byte, or multiple bytes per transaction
 * Read device ID (for devices that support it)
@@ -18,19 +18,21 @@ This is a P8X32A/Propeller driver object for I2C FRAM memories
 P1/SPIN1:
 * spin-standard-library
 * 1 extra core/cog for PASM I2C engine
+* memory.common.spinh (provided by spin-standard-library)
 
 P2/SPIN2:
 * p2-spin-standard-library
+* memory.common.spin2h (provided by p2-spin-standard-library)
 
 ## Compiler Compatibility
 
 | Processor | Language | Compiler               | Backend     | Status                |
 |-----------|----------|------------------------|-------------|-----------------------|
-| P1        | SPIN1    | FlexSpin (5.9.13-beta) | Bytecode    | OK                    |
-| P1        | SPIN1    | FlexSpin (5.9.13-beta) | Native code | OK                    |
+| P1        | SPIN1    | FlexSpin (5.9.14-beta) | Bytecode    | OK                    |
+| P1        | SPIN1    | FlexSpin (5.9.14-beta) | Native code | OK                    |
 | P1        | SPIN1    | OpenSpin (1.00.81)     | Bytecode    | Untested (deprecated) |
-| P2        | SPIN2    | FlexSpin (5.9.13-beta) | NuCode      | FTBFS                 |
-| P2        | SPIN2    | FlexSpin (5.9.13-beta) | Native code | OK                    |
+| P2        | SPIN2    | FlexSpin (5.9.14-beta) | NuCode      | FTBFS                 |
+| P2        | SPIN2    | FlexSpin (5.9.14-beta) | Native code | OK                    |
 | P1        | SPIN1    | Brad's Spin Tool (any) | Bytecode    | Unsupported           |
 | P1, P2    | SPIN1, 2 | Propeller Tool (any)   | Bytecode    | Unsupported           |
 | P1, P2    | SPIN1, 2 | PNut (any)             | Bytecode    | Unsupported           |
