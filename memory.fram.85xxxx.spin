@@ -5,7 +5,7 @@
     Description: Driver for 85xxxx series I2C FRAM
     Copyright (c) 2022
     Started Oct 27, 2019
-    Updated Sep 21, 2022
+    Updated Oct 3, 2022
     See end of file for terms of use.
     --------------------------------------------
 }
@@ -52,13 +52,13 @@ PUB start{}: status
 
 PUB startx(SCL_PIN, SDA_PIN, I2C_HZ, ADDR_BITS): status
 ' Start using custom settings
-    if lookdown(SCL_PIN: 0..31) and lookdown(SDA_PIN: 0..31) and {
-}   lookdown(ADDR_BITS: %000..%111) and I2C_HZ =< core#I2C_MAX_FREQ
+    if (lookdown(SCL_PIN: 0..31) and lookdown(SDA_PIN: 0..31) and {
+}   lookdown(ADDR_BITS: %000..%111) and I2C_HZ =< core#I2C_MAX_FREQ)
         if (status := i2c.init(SCL_PIN, SDA_PIN, I2C_HZ))
             time.usleep(core#T_POR)
             _addr_bits := ADDR_BITS << 1
             ' check device bus presence
-            if i2c.present(SLAVE_WR | _addr_bits)
+            if (i2c.present(SLAVE_WR | _addr_bits))
                 return
     ' if this point is reached, something above failed
     ' Double check I/O pin assignments, connections, power
@@ -70,7 +70,7 @@ PUB stop{}
     i2c.deinit{}
     _addr_bits := 0
 
-PUB device_id{}: id
+PUB dev_id{}: id
 ' Read device identification
 '   NOTE: This may not be supported by all devices
     i2c.start{}
@@ -88,7 +88,7 @@ PUB mfr_id{}: id
 '   Known values:
 '       $004 (Cypress)
 '       $00A (Fujitsu)
-    return (device_id{} >> 12) & $FFF
+    return (dev_id{} >> 12) & $FFF
 
 PUB page_size{}: p
 ' Page size
@@ -100,7 +100,7 @@ PUB part_size{}: size | devid, mfr
 '   Known values:
 '       mfr_id() == CYPRESS ($004): 256, 512, 1024
 '       mfr_id() == FUJITSU ($00A): 256, 512, 1024
-    devid := device_id{}
+    devid := dev_id{}
     mfr := (devid >> 12) & $FFF
     size := (devid >> 8) & %1111
     case mfr

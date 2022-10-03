@@ -39,7 +39,7 @@ OBJ
     time: "time"
     mem : "memory.fram.85xxxx"
 
-PUB Setup{}
+PUB setup{}
 
     ser.start(SER_BAUD)
     time.msleep(30)
