@@ -6,7 +6,7 @@
         * Memory hexdump display
     Copyright (c) 2022
     Started Sep 10, 2020
-    Updated Jul 30, 2022
+    Updated Oct 16, 2022
     See end of file for terms of use.
     --------------------------------------------
 }
@@ -34,7 +34,7 @@ CON
 
 OBJ
 
-    cfg : "core.con.boardcfg.flip"
+    cfg : "boardcfg.flip"
     ser : "com.serial.terminal.ansi"
     time: "time"
     mem : "memory.fram.85xxxx"
