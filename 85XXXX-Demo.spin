@@ -30,7 +30,10 @@ OBJ
     cfg:    "boardcfg.flip"
     ser:    "com.serial.terminal.ansi"
     time:   "time"
-    mem:    "memory.fram.85xxxx" | SCL=28, SDA=29, I2C_FREQ=1_000_000, I2C_ADDR=%000
+    mem:    "memory.fram.85xxxx" | SCL=0, SDA=1, I2C_FREQ=1_000_000, I2C_ADDR=%000
+'                                   Pins and/or address bits need to be different than the
+'                                    Propeller's EEPROM, otherwise the demo may be reading
+'                                    from/writing to it instead of the FRAM)
 
 PUB setup{}
 
