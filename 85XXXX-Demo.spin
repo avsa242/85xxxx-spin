@@ -1,59 +1,176 @@
 {
-    --------------------------------------------
-    Filename: 85XXXX-Demo.spin
-    Author: Jesse Burt
-    Description: Simple demo of the 85XXXX FRAM driver
+----------------------------------------------------------------------------------------------------
+    Filename:       85XXXX-Demo.spin
+    Description:    Simple demo of the 85XXXX FRAM driver
         * Memory hexdump display
-    Copyright (c) 2023
-    Started Sep 10, 2020
-    Updated Jul 13, 2023
-    See end of file for terms of use.
-    --------------------------------------------
+    Author:         Jesse Burt
+    Started:        Sep 10, 2020
+    Updated:        Sep 17, 2024
+    Copyright (c) 2024 - See end of file for terms of use.
+----------------------------------------------------------------------------------------------------
 }
+
+' Uncomment the two lines below to use the bytecode-based I2C engine in the driver
+'#define FRAM85XXXX_I2C_BC
+'#pragma exportdef(FRAM85XXXX_I2C_BC)
+
 
 CON
 
-    _clkmode    = cfg#_clkmode
-    _xinfreq    = cfg#_xinfreq
+    _clkmode    = xtal1+pll16x
+    _xinfreq    = 5_000_000
 
 ' -- User-modifiable constants
-    SER_BAUD    = 115_200
-
-    { memory size }
-    PART        = 256                           ' kbits
+    PART        = 256                           ' memory size in kbits
 ' --
 
     MEMSIZE     = (PART / 8) * 1024
 
+
 OBJ
 
-    cfg:    "boardcfg.flip"
-    ser:    "com.serial.terminal.ansi"
     time:   "time"
-    mem:    "memory.fram.85xxxx" | SCL=0, SDA=1, I2C_FREQ=1_000_000, I2C_ADDR=%000
+    math:   "math.int"
+    ser:    "com.serial.terminal.ansi" | SER_BAUD=115_200
+    mem:    "memory.fram.85xxxx" | SCL=28, SDA=29, I2C_FREQ=1_000_000, I2C_ADDR=%000
 '                                   Pins and/or address bits need to be different than the
-'                                    Propeller's EEPROM, otherwise the demo may be reading
-'                                    from/writing to it instead of the FRAM)
+'                                       Propeller's EEPROM, otherwise the demo may be reading
+'                                       from/writing to it instead of the FRAM.
 
-PUB setup{}
+VAR
 
-    ser.start(SER_BAUD)
+    word _lastpage
+    word _pagesize
+    byte _pg_buff[512]                          ' reasonable maximum
+
+
+CON
+
+    CLK_FREQ    = (_clkmode >> 6) * _xinfreq    ' extract P1 clock freq
+    CYCLES_USEC = CLK_FREQ / 1_000_000          ' calc # cycles in 1 microsec
+
+
+PUB main() | base_page, offs
+
+    setup()
+
+    ser.set_attrs(ser.ECHO)
+    _pagesize := mem.page_size() <# 512
+    ser.printf1(@"Page size: %d\n\r", _pagesize)
+    bytefill(@_pg_buff, 0, _pagesize)          ' clear out buffer
+    _lastpage := (MEMSIZE / _pagesize)-1
+    base_page := 0
+    math.rndseed(cnt)
+    mem.rd_block_lsbf(@_pg_buff, base_page, _pagesize)
+    offs := pg2byte_offs(base_page)
+    ser.pos_xy(0, 4)
+    ser.strln(@"Keys:")
+    ser.strln(@"[, ]: go back, forward a page in memory")
+    ser.strln(@"a: go to specific address (hexdump will round down to page start address)")
+    ser.strln(@"s, e: go to the first, last page")
+    ser.strln(@"w: write test: fill current page with random value")
+    ser.strln(@"x: erase test: fill the current page with the erase value")
+    ser.strln(@"   (varies among memory types)")
+    ser.fgcolor(ser.RED)
+    ser.strln(@"Only perform the write or erase test if the data stored on the memory")
+    ser.strln(@"  isn't important!")
+    ser.fgcolor(ser.GREY)
+    repeat
+        ser.pos_xy(0, 13)
+        { display a hexdump of the current page of memory, but limit it to
+            a reasonable 512 bytes at a time }
+        ser.hexdump(@_pg_buff, offs, 6, _pagesize, 16)
+
+        case ser.getchar()
+            "[":                                ' go back a page in memory
+                base_page--
+                if (base_page < 0)
+                    base_page := 0
+            "]":                                ' go forward a page
+                base_page++
+                if (base_page > _lastpage)
+                    base_page := _lastpage
+            "a":
+                ser.str(@"Enter address (hex): ")
+                base_page := ser.gethex() / _pagesize
+                ser.newline()
+            "e":                                ' go to the last page
+                base_page := _lastpage
+            "s":                                ' go to the first page
+                base_page := 0
+            "w":                                ' fill page w/test value
+                cycle_time(write_test(offs))
+            "x":                                ' erase the current page
+                cycle_time(erase_test(offs))
+            other:
+        offs := pg2byte_offs(base_page)
+        cycle_time(read_test(offs))
+
+
+PUB erase_test(st_addr): etime | stime
+' Erase memory page
+    ser.str(@"Erasing page...")
+
+    { fill working buffer with erase character }
+    bytefill(@_pg_buff, mem.ERASE_CELL, _pagesize)
+
+    { write the buffer to memory, and track how long it takes }
+    stime := cnt
+    mem.wr_block_lsbf(st_addr, @_pg_buff, _pagesize)
+    etime := cnt-stime
+
+
+PUB read_test(st_addr): etime | stime
+' Read memory page
+    bytefill(@_pg_buff, 0, _pagesize)
+    ser.str(@"Reading page...")
+
+    { read memory page to buffer }
+    stime := cnt
+    mem.rd_block_lsbf(@_pg_buff, st_addr, _pagesize)
+    etime := cnt-stime
+
+
+PUB write_test(st_addr): etime | stime
+' Write a random test value to memory page
+    ser.str(@"Writing page...")
+    bytefill(@_pg_buff, math.rndi(255), _pagesize)
+
+    { fill page with test character }
+    stime := cnt
+    mem.wr_block_lsbf(st_addr, @_pg_buff, _pagesize)
+    etime := cnt-stime
+
+
+PRI cycle_time(cycles)
+' Display elapsed time in cycles and microseconds
+    ser.printf2(@"%d cycles (%dusec)", cycles, (cycles / CYCLES_USEC))
+    ser.clear_ln()
+    ser.newline()
+
+
+PRI pg2byte_offs(page_nr): b
+' Get start of page number as a byte offset
+    return (page_nr * _pagesize)
+
+
+PUB setup()
+
+    ser.start()
     time.msleep(30)
-    ser.clear{}
-    ser.strln(string("Serial terminal started"))
+    ser.clear()
+    ser.strln(@"Serial terminal started")
+
     if ( mem.start() )
-        ser.strln(string("85XXXX driver started"))
+        ser.strln(@"85XXXX driver started")
     else
-        ser.strln(string("85XXXX driver failed to start - halting"))
+        ser.strln(@"85XXXX driver failed to start - halting")
         repeat
 
-    demo{}
-
-#include "memdemo.common.spinh"
 
 DAT
 {
-Copyright 2023 Jesse Burt
+Copyright 2024 Jesse Burt
 
 Permission is hereby granted, free of charge, to any person obtaining a copy of this software and
 associated documentation files (the "Software"), to deal in the Software without restriction,

@@ -1,72 +1,76 @@
 {
-    --------------------------------------------
-    Filename: memory.fram.85xxxx.spin
-    Author: Jesse Burt
-    Description: Driver for 85xxxx series I2C FRAM
-    Copyright (c) 2023
-    Started Oct 27, 2019
-    Updated Jul 13, 2023
-    See end of file for terms of use.
-    --------------------------------------------
+----------------------------------------------------------------------------------------------------
+    Filename:       memory.fram.85xxxx.spin
+    Description:    Driver for 85xxxx series I2C FRAM
+    Author:         Jesse Burt
+    Started:        Oct 27, 2019
+    Updated:        Sep 17, 2024
+    Copyright (c) 2024 - See end of file for terms of use.
+----------------------------------------------------------------------------------------------------
 }
 
 #include "memory.common.spinh"
 
 CON
 
-    SLAVE_WR    = core#SLAVE_ADDR
-    SLAVE_RD    = core#SLAVE_ADDR|1
+    { default I/O settings; these can be overridden in the parent object }
+    SCL         = 0                             ' these can't be the same pins as the P1 EEPROM
+    SDA         = 1                             '   unless the I2C_ADDR is non-zero
+    I2C_FREQ    = 100_000
+    I2C_ADDR    = %000
 
-    DEF_SCL     = 28
-    DEF_SDA     = 29
-    DEF_HZ      = 100_000
-    DEF_ADDR    = %000
-    I2C_MAX_FREQ= core#I2C_MAX_FREQ
+
+    SLAVE_WR    = core.SLAVE_ADDR
+    SLAVE_RD    = core.SLAVE_ADDR|1
+    I2C_MAX_FREQ= core.I2C_MAX_FREQ
+
 
     { manufacturers }
     CYPRESS     = $004
     FUJITSU     = $00A
 
-    ERASE_CELL  = $FF
+    ERASE_CELL  = $00                           ' not actually used with FRAM
 
-    { default I/O settings; these can be overridden in the parent object }
-    SCL         = DEF_SCL
-    SDA         = DEF_SDA
-    I2C_FREQ    = DEF_HZ
-    I2C_ADDR    = DEF_ADDR
 
 VAR
 
     byte _addr_bits
 
+
 OBJ
 
 { decide: Bytecode I2C engine, or PASM? Default is PASM if BC isn't specified }
-#ifdef 85XXXX_I2C_BC
-    i2c : "com.i2c.nocog"                       ' BC I2C engine
+#ifdef FRAM85XXXX_I2C_BC
+    i2c:    "com.i2c.nocog"                     ' BC I2C engine
 #else
-    i2c : "com.i2c"                             ' PASM I2C engine
+    i2c:    "com.i2c"                           ' PASM I2C engine
 #endif
-    core: "core.con.85xxxx"                     ' HW-specific constants
-    time: "time"                                ' timekeeping methods
+    core:   "core.con.85xxxx"                   ' HW-specific constants
+    time:   "time"                              ' timekeeping methods
 
-PUB null{}
+
+PUB null()
 ' This is not a top-level object
 
-PUB start{}: status
+
+PUB start(): status
 ' Start using default I/O settings
     return startx(SCL, SDA, I2C_FREQ, I2C_ADDR)
 
+
 PUB startx(SCL_PIN, SDA_PIN, I2C_HZ, ADDR_BITS): status
 ' Start using custom I/O settings
-'   SCL_PIN: I2C serial clock
-'   SDA_PIN: I2C serial data
-'   I2C_HZ: I2C bus speed
-'   ADDR_BITS: optional address bits for alternate bus address
+'   SCL_PIN:    I2C serial clock
+'   SDA_PIN:    I2C serial data
+'   I2C_HZ:     I2C bus speed
+'   ADDR_BITS:  address bits for alternate bus address (%000..%111)
+'   Returns:
+'       cog ID+1 of I2C engine on success (= calling cog ID+1, if the bytecode I2C engine is used)
+'       0 on failure
     if ( (lookdown(SCL_PIN: 0..31) and lookdown(SDA_PIN: 0..31) and ...
         lookdown(ADDR_BITS: %000..%111)) )
         if ( status := i2c.init(SCL_PIN, SDA_PIN, I2C_HZ) )
-            time.usleep(core#T_POR)
+            time.usleep(core.T_POR)
             _addr_bits := ADDR_BITS << 1
             ' check device bus presence
             if ( i2c.present(SLAVE_WR | _addr_bits) )
@@ -76,42 +80,47 @@ PUB startx(SCL_PIN, SDA_PIN, I2C_HZ, ADDR_BITS): status
     ' Lastly - make sure you have at least one free core/cog
     return FALSE
 
-PUB stop{}
+
+PUB stop()
 ' Stop the driver
-    i2c.deinit{}
+    i2c.deinit()
     _addr_bits := 0
 
-PUB dev_id{}: id
+
+PUB dev_id(): id
 ' Read device identification
 '   NOTE: This may not be supported by all devices
-    i2c.start{}
-    i2c.write(core#RSVD_SLAVE_W)
+    i2c.start()
+    i2c.write(core.RSVD_SLAVE_W)
     i2c.write(SLAVE_WR | _addr_bits)
 
     id := 0
-    i2c.start{}
-    i2c.write(core#RSVD_SLAVE_R)
-    i2c.rdblock_msbf(@id, 3, i2c#NAK)
-    i2c.stop{}
+    i2c.start()
+    i2c.write(core.RSVD_SLAVE_R)
+    i2c.rdblock_msbf(@id, 3, i2c.NAK)
+    i2c.stop()
 
-PUB mfr_id{}: id
+
+PUB mfr_id(): id
 ' Read manufacturer ID
 '   Known values:
 '       $004 (Cypress)
 '       $00A (Fujitsu)
-    return (dev_id{} >> 12) & $FFF
+    return (dev_id() >> 12) & $FFF
 
-PUB page_size{}: p
+
+PUB page_size(): p
 ' Page size
 '   NOTE: FRAM has no concept of pages, so just return the part's full size
-    return (part_size{} / 8) * 1024
+    return (part_size() / 8) * 1024
 
-PUB part_size{}: size | devid, mfr
+
+PUB part_size(): size | devid, mfr
 ' Size/density of FRAM chip, in kbits
 '   Known values:
 '       mfr_id() == CYPRESS ($004): 256, 512, 1024
 '       mfr_id() == FUJITSU ($00A): 256, 512, 1024
-    devid := dev_id{}
+    devid := dev_id()
     mfr := (devid >> 12) & $FFF
     size := (devid >> 8) & %1111
     case mfr
@@ -119,6 +128,7 @@ PUB part_size{}: size | devid, mfr
             return lookup(size: 1024, 256, 512)
         FUJITSU:
             return lookup(size: 0, 0, 0, 0, 256, 512, 1024)
+
 
 PUB rd_block_lsbf(ptr_buff, addr, nr_bytes) | cmd_pkt
 ' Read a block of memory starting at addr, LSB-first
@@ -128,18 +138,19 @@ PUB rd_block_lsbf(ptr_buff, addr, nr_bytes) | cmd_pkt
             cmd_pkt.byte[1] := addr.byte[1]
             cmd_pkt.byte[2] := addr.byte[0]
         $1_0000..$1_FFFF:                       ' upper page (for 1Mbit FRAM)
-            cmd_pkt.byte[0] := SLAVE_WR | core#PAGE_HI | _addr_bits
+            cmd_pkt.byte[0] := SLAVE_WR | core.PAGE_HI | _addr_bits
             cmd_pkt.byte[1] := addr.byte[1]
             cmd_pkt.byte[2] := addr.byte[0]
         other:
             return
 
-    i2c.start{}
+    i2c.start()
     i2c.wrblock_lsbf(@cmd_pkt, 3)
-    i2c.start{}
+    i2c.start()
     i2c.write(SLAVE_RD)
-    i2c.rdblock_lsbf(ptr_buff, nr_bytes, i2c#NAK)
-    i2c.stop{}
+    i2c.rdblock_lsbf(ptr_buff, nr_bytes, i2c.NAK)
+    i2c.stop()
+
 
 PUB rd_block_msbf(ptr_buff, addr, nr_bytes) | cmd_pkt
 ' Read a block of memory starting at addr, MSB-first
@@ -149,18 +160,19 @@ PUB rd_block_msbf(ptr_buff, addr, nr_bytes) | cmd_pkt
             cmd_pkt.byte[1] := addr.byte[1]
             cmd_pkt.byte[2] := addr.byte[0]
         $1_0000..$1_FFFF:                       ' upper page (for 1Mbit FRAM)
-            cmd_pkt.byte[0] := SLAVE_WR | core#PAGE_HI | _addr_bits
+            cmd_pkt.byte[0] := SLAVE_WR | core.PAGE_HI | _addr_bits
             cmd_pkt.byte[1] := addr.byte[1]
             cmd_pkt.byte[2] := addr.byte[0]
         other:
             return
 
-    i2c.start{}
+    i2c.start()
     i2c.wrblock_lsbf(@cmd_pkt, 3)
-    i2c.start{}
+    i2c.start()
     i2c.write(SLAVE_RD)
-    i2c.rdblock_msbf(ptr_buff, nr_bytes, i2c#NAK)
-    i2c.stop{}
+    i2c.rdblock_msbf(ptr_buff, nr_bytes, i2c.NAK)
+    i2c.stop()
+
 
 PUB wr_block_lsbf(addr, ptr_buff, nr_bytes) | cmd_pkt
 ' Write a block of memory starting at addr, LSB-first
@@ -170,16 +182,17 @@ PUB wr_block_lsbf(addr, ptr_buff, nr_bytes) | cmd_pkt
             cmd_pkt.byte[1] := addr.byte[1]
             cmd_pkt.byte[2] := addr.byte[0]
         $1_0000..$1_FFFF:
-            cmd_pkt.byte[0] := SLAVE_WR | core#PAGE_HI | _addr_bits
+            cmd_pkt.byte[0] := SLAVE_WR | core.PAGE_HI | _addr_bits
             cmd_pkt.byte[1] := addr.byte[1]
             cmd_pkt.byte[2] := addr.byte[0]
         other:
             return
 
-    i2c.start{}
+    i2c.start()
     i2c.wrblock_lsbf(@cmd_pkt, 3)
     i2c.wrblock_lsbf(ptr_buff, nr_bytes)
-    i2c.stop{}
+    i2c.stop()
+
 
 PUB wr_block_msbf(addr, ptr_buff, nr_bytes) | cmd_pkt
 ' Write a block of memory starting at addr, MSB-first
@@ -189,20 +202,21 @@ PUB wr_block_msbf(addr, ptr_buff, nr_bytes) | cmd_pkt
             cmd_pkt.byte[1] := addr.byte[1]
             cmd_pkt.byte[2] := addr.byte[0]
         $1_0000..$1_FFFF:
-            cmd_pkt.byte[0] := SLAVE_WR | core#PAGE_HI | _addr_bits
+            cmd_pkt.byte[0] := SLAVE_WR | core.PAGE_HI | _addr_bits
             cmd_pkt.byte[1] := addr.byte[1]
             cmd_pkt.byte[2] := addr.byte[0]
         other:
             return
 
-    i2c.start{}
+    i2c.start()
     i2c.wrblock_lsbf(@cmd_pkt, 3)
     i2c.wrblock_msbf(ptr_buff, nr_bytes)
-    i2c.stop{}
+    i2c.stop()
+
 
 DAT
 {
-Copyright 2023 Jesse Burt
+Copyright 2024 Jesse Burt
 
 Permission is hereby granted, free of charge, to any person obtaining a copy of this software and
 associated documentation files (the "Software"), to deal in the Software without restriction,
